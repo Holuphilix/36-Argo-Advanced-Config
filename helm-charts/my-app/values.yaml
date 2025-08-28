@@ -1,0 +1,10 @@
+replicaCount: 2
+
+image:
+  repository: holuphilix/my-k8s-app
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
