@@ -1,6 +1,6 @@
 # helm-charts/my-app/values.yaml
 
-replicaCount: 2
+replicaCount: 1
 
 image:
   repository: holuphilix/my-k8s-app
@@ -11,7 +11,6 @@ service:
   type: ClusterIP
   port: 80
 
-# Add this section to fix ingress errors
 ingress:
   enabled: false
   annotations: {}
@@ -20,3 +19,18 @@ ingress:
       paths:
         - /
   tls: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# Add serviceAccount defaults to fix nil pointer errors
+serviceAccount:
+  create: true
+  name: ""
+
+# Optional overrides
+nameOverride: ""
+fullnameOverride: ""
