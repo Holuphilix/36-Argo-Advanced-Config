@@ -1,3 +1,5 @@
+# helm-charts/my-app/values.yaml
+
 replicaCount: 2
 
 image:
@@ -8,3 +10,13 @@ image:
 service:
   type: ClusterIP
   port: 80
+
+# Add this section to fix ingress errors
+ingress:
+  enabled: false
+  annotations: {}
+  hosts:
+    - host: my-app.local
+      paths:
+        - /
+  tls: []
