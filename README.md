@@ -244,6 +244,82 @@ service.yaml    → Service configuration
 ingress.yaml    → Ingress rules (optional)
 ```
 
+* Edit `deployment.yaml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "my-app.fullname" . }}
+  labels:
+    app: {{ include "my-app.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "my-app.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "my-app.name" . }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+```
+
+* Edit `service.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "my-app.fullname" . }}
+  labels:
+    app: {{ include "my-app.name" . }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ include "my-app.name" . }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: 80
+```
+
+* Edit `ingress.yaml`:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "my-app.fullname" . }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: my-app.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "my-app.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+```
+
 #### **Step 5: Commit Helm Chart to Git**
 
 ```bash
@@ -290,8 +366,6 @@ kubectl get pods -n default
 kubectl get svc -n default
 ```
 
----
-
 ### **Expected Outcome**
 
 * Minikube cluster running with ArgoCD installed.
@@ -299,10 +373,12 @@ kubectl get svc -n default
 * ArgoCD application tracking the GitHub repository.
 * Application deployed automatically to Kubernetes, pulling images from Docker Hub.
 
----
-
 ### **Notes**
 
 * Ensure Docker Hub image `holuphilix/my-k8s-app:latest` is accessible from the cluster.
 * Use environment-specific `values.yaml` for dev/staging/prod.
 * This task sets up the foundation for integrating **secrets** and **Kustomize overlays** in later tasks.
+* Docker Hub image `holuphilix/my-k8s-app:latest` is referenced in `values.yaml`.
+* Deployment, Service, and optional Ingress templates are ready.
+* You can now push these templates to GitHub and sync via ArgoCD.
+
