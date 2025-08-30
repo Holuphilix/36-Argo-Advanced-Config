@@ -403,7 +403,7 @@ git push origin main
 * **Using CLI:**
 
 ```bash
-argocd login localhost:8080 --username admin --password WCAo3rXF1S3BHsJ3 --insecure
+argocd login localhost:8080 --username admin --password LjWTMPXeOrXCjbTh --insecure
 
 argocd app create my-app \
   --repo https://github.com/Holuphilix/ argo-advanced-config.git \
@@ -433,6 +433,44 @@ argocd app get my-app
 kubectl get pods -n default
 kubectl get svc -n default
 ```
+
+### **Step 12: Access the Application via Ingress (Local Only)**
+
+> **Note:** This step is only necessary if you want to access your app through `my-app.local` on Minikube.
+
+1. **Enable Minikube Ingress Addon**
+
+```bash
+minikube addons enable ingress
+```
+
+2. **Get Minikube IP**
+
+```bash
+minikube ip
+```
+
+Suppose it returns `192.168.49.2`
+
+3. **Update your local hosts file**
+
+*Windows:* `C:\Windows\System32\drivers\etc\hosts`
+*Linux/Mac:* `/etc/hosts`
+
+Add a line:
+
+```
+192.168.49.2   my-app.local
+```
+
+4. **Open the app in a browser**
+
+```
+http://my-app.local
+```
+
+Your application should now be accessible via the Ingress hostname.
+
 
 ### **Expected Outcome**
 
