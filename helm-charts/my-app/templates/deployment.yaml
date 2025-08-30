@@ -3,22 +3,21 @@ kind: Deployment
 metadata:
   name: {{ include "my-app.fullname" . }}
   labels:
-    {{- include "my-app.labels" . | nindent 4 }}
+    app: {{ include "my-app.name" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "my-app.selectorLabels" . | nindent 6 }}
+      app: {{ include "my-app.name" . }}
   template:
     metadata:
       labels:
-        {{- include "my-app.selectorLabels" . | nindent 8 }}
+        app: {{ include "my-app.name" . }}
     spec:
-      serviceAccountName: {{ include "my-app.serviceAccountName" . }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
           ports:
             - containerPort: 80
           resources:
