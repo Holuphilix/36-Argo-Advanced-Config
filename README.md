@@ -320,7 +320,75 @@ spec:
                   number: {{ .Values.service.port }}
 ```
 
-#### **Step 5: Commit Helm Chart to Git**
+### **Step 6: Create Minimal Node.js App**
+
+Create `index.js`:
+
+```javascript
+const http = require('http');
+const PORT = 80;
+const server = http.createServer((req, res) => {
+  res.writeHead(200, {'Content-Type': 'text/plain'});
+  res.end('Hello from ArgoCD Helm Deployment!\n');
+});
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+```
+
+Create `package.json`:
+
+```json
+{
+  "name": "my-k8s-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {}
+}
+```
+
+### **Step 6: Create a Dockerfile**
+
+Create a file called `Dockerfile` in your project root:
+
+```dockerfile
+# Use Node.js LTS base image
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy app source
+COPY . .
+
+# Expose port
+EXPOSE 80
+
+# Start the application
+CMD ["node", "index.js"]
+```
+
+### **Step 7: Build the image**
+
+```bash
+docker build -t holuphilix/my-k8s-app:latest .
+```
+
+### **Step 8: Push to Docker Hub**
+
+```bash
+docker login
+docker push holuphilix/my-k8s-app:latest
+```
+
+### **Step 9: Commit Helm Chart to Git**
 
 ```bash
 git init
@@ -330,7 +398,7 @@ git remote add origin https://github.com/Holuphilix/argo-advanced-config.git
 git push origin main
 ```
 
-#### **Step 6: Create ArgoCD Application**
+### **Step 10: Create ArgoCD Application**
 
 * **Using CLI:**
 
@@ -338,7 +406,7 @@ git push origin main
 argocd login localhost:8080 --username admin --password WCAo3rXF1S3BHsJ3 --insecure
 
 argocd app create my-app \
-  --repo https://github.com/Holuphilix/argo-advanced-config.git \
+  --repo https://github.com/Holuphilix/ argo-advanced-config.git \
   --path helm-charts/my-app \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace default \
@@ -350,7 +418,7 @@ argocd app create my-app \
 
   * Log in → Click **New App** → Fill repository URL and path → Set cluster & namespace → Enable automated sync.
 
-#### **Step 7: Sync and Verify**
+### **Step 11: Sync and Verify**
 
 * Sync application via CLI:
 
@@ -381,4 +449,5 @@ kubectl get svc -n default
 * Docker Hub image `holuphilix/my-k8s-app:latest` is referenced in `values.yaml`.
 * Deployment, Service, and optional Ingress templates are ready.
 * You can now push these templates to GitHub and sync via ArgoCD.
+* You can deploy now using either your Node.js app or a prebuilt image like `nginx`.
 

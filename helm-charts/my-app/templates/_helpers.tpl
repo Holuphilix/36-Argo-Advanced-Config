@@ -22,14 +22,14 @@ Truncate at 63 chars because of Kubernetes DNS limits.
 {{- end }}
 {{- end }}
 
-{{/*
+{{/* 
 Create chart name and version for chart label.
 */}}
 {{- define "my-app.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
+{{/* 
 Common labels for all resources.
 */}}
 {{- define "my-app.labels" -}}
