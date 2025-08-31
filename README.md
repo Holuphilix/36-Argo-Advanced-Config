@@ -131,16 +131,22 @@ argo-advanced-config/
 │           ├── kustomization.yaml
 │           └── patch.yaml
 ├── secrets/
-└── images/
+├── images/
+├── index.js
+├── package.json
+└── Dockerfile
 ```
 
-**Notes:**
+### **Notes:**
 
-* `helm-charts/` → for Helm templates including `deployment.yaml`, `service.yaml`, and optional `ingress.yaml`.
-* `kustomize/` → for Kustomize bases and overlays including `service.yaml`.
-* `secrets/` → for Kubernetes secrets or external secret references.
-* `images/` → optional, for diagrams or screenshots.
-* `README.md` → main project documentation.
+* `kustomize/base/` → Contains base Deployment and Service definitions.
+* `kustomize/overlays/dev/` → Dev-specific configuration: 1 replica, `dev` image tag.
+* `kustomize/overlays/staging/` → Staging-specific configuration: 2 replicas, `staging` image tag.
+* `kustomize/overlays/prod/` → Prod-specific configuration: 3 replicas, `latest` image tag.
+* `secrets/` → Reserved for Kubernetes secrets or external secret references (used in later tasks).
+* `images/` → Optional folder for diagrams or screenshots.
+* `helm-charts/` → Helm chart templates for your application.
+* `index.js` / `package.json` / `Dockerfile` → Node.js application and Docker configuration.
 
 ## **Task 2: Helm Chart Creation and ArgoCD Integration**
 
@@ -252,21 +258,24 @@ kind: Deployment
 metadata:
   name: {{ include "my-app.fullname" . }}
   labels:
-    app: {{ include "my-app.name" . }}
+    app.kubernetes.io/name: {{ include "my-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "my-app.name" . }}
+      app.kubernetes.io/name: {{ include "my-app.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ include "my-app.name" . }}
+        app.kubernetes.io/name: {{ include "my-app.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
           ports:
             - containerPort: 80
           resources:
@@ -304,6 +313,8 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "my-app.fullname" . }}
+  labels:
+    {{- include "my-app.labels" . | nindent 4 }}
   annotations:
     kubernetes.io/ingress.class: nginx
 spec:
@@ -403,15 +414,20 @@ git push origin main
 * **Using CLI:**
 
 ```bash
-argocd login localhost:8080 --username admin --password LjWTMPXeOrXCjbTh --insecure
+# Log in to ArgoCD
+argocd login localhost:8080 --username admin --password 4I7qZw4rJ4kFrqPQ --insecure
 
+# Create the ArgoCD app with NodePort service
 argocd app create my-app \
-  --repo https://github.com/Holuphilix/ argo-advanced-config.git \
+  --repo https://github.com/Holuphilix/argo-advanced-config.git \
   --path helm-charts/my-app \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace default \
   --helm-set image.repository=holuphilix/my-k8s-app \
-  --helm-set image.tag=latest
+  --helm-set image.tag=latest \
+  --helm-set service.type=NodePort \
+  --helm-set service.port=80 \
+  --helm-set service.nodePort=30080
 ```
 
 * **Using UI:**
@@ -433,45 +449,6 @@ argocd app get my-app
 kubectl get pods -n default
 kubectl get svc -n default
 ```
-
-### **Step 12: Access the Application via Ingress (Local Only)**
-
-> **Note:** This step is only necessary if you want to access your app through `my-app.local` on Minikube.
-
-1. **Enable Minikube Ingress Addon**
-
-```bash
-minikube addons enable ingress
-```
-
-2. **Get Minikube IP**
-
-```bash
-minikube ip
-```
-
-Suppose it returns `192.168.49.2`
-
-3. **Update your local hosts file**
-
-*Windows:* `C:\Windows\System32\drivers\etc\hosts`
-*Linux/Mac:* `/etc/hosts`
-
-Add a line:
-
-```
-192.168.49.2   my-app.local
-```
-
-4. **Open the app in a browser**
-
-```
-http://my-app.local
-```
-
-Your application should now be accessible via the Ingress hostname.
-
-
 ### **Expected Outcome**
 
 * Minikube cluster running with ArgoCD installed.
@@ -487,5 +464,281 @@ Your application should now be accessible via the Ingress hostname.
 * Docker Hub image `holuphilix/my-k8s-app:latest` is referenced in `values.yaml`.
 * Deployment, Service, and optional Ingress templates are ready.
 * You can now push these templates to GitHub and sync via ArgoCD.
-* You can deploy now using either your Node.js app or a prebuilt image like `nginx`.
 
+Ah! I see exactly what you mean now — you want **Task 3 fully rewritten to match the style, numbering, alignment, and formatting of your Task 1** you pasted earlier. That means:
+
+* **Numbered “Task 3” header like Task 1**
+* Steps numbered sequentially (1, 2, 3…)
+* Proper “### **Step X: …**” headers
+* Code blocks directly under each step
+* Notes at the bottom using the same indentation/alignment style
+
+## Task 3: Kustomize Overlays for Dev, Staging, Prod
+
+### **Objective:**
+
+Implement environment-specific Kustomize overlays for dev, staging, and prod deployments, enabling ArgoCD automated syncing, self-healing, and pruning.
+
+### **Steps:**
+
+1. **Create the Kustomize Base**
+
+**File:** `kustomize/base/kustomization.yaml`
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+
+namePrefix: my-app-
+labels:
+  app: my-app
+```
+
+**File:** `kustomize/base/deployment.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+  labels:
+    app: my-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-app
+          image: holuphilix/my-k8s-app:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+```
+
+**File:** `kustomize/base/service.yaml`
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app
+  labels:
+    app: my-app
+spec:
+  type: ClusterIP
+  selector:
+    app: my-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+```
+
+---
+
+2. **Create Dev Overlay**
+
+**File:** `kustomize/overlays/dev/kustomization.yaml`
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+nameSuffix: -dev
+
+patches:
+  - path: patch.yaml
+    target:
+      kind: Deployment
+      name: my-app
+```
+
+**File:** `kustomize/overlays/dev/patch.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: my-app
+          image: holuphilix/my-k8s-app:dev
+```
+
+3. **Create Staging Overlay**
+
+**File:** `kustomize/overlays/staging/kustomization.yaml`
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+nameSuffix: -staging
+
+patches:
+  - path: patch.yaml
+    target:
+      kind: Deployment
+      name: my-app
+```
+
+**File:** `kustomize/overlays/staging/patch.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: my-app
+          image: holuphilix/my-k8s-app:staging
+```
+
+4. **Create Prod Overlay**
+
+**File:** `kustomize/overlays/prod/kustomization.yaml`
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+nameSuffix: -prod
+
+patches:
+  - path: patch.yaml
+    target:
+      kind: Deployment
+      name: my-app
+```
+
+**File:** `kustomize/overlays/prod/patch.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: my-app
+          image: holuphilix/my-k8s-app:latest
+```
+
+5. **Test Kustomize Locally**
+
+```bash
+# Dev
+kubectl apply -k kustomize/overlays/dev
+
+# Staging
+kubectl apply -k kustomize/overlays/staging
+
+# Prod
+kubectl apply -k kustomize/overlays/prod
+
+# Verify
+kubectl get deployments
+kubectl get svc
+```
+
+6. **Commit and push** the changes to your GitHub repository:
+
+```bash
+git add .
+git commit -m "Add kustomization files for base and overlays"
+git push origin main
+```
+
+7. **Integrate Kustomize with ArgoCD**
+
+```bash
+# Dev - automated sync, self-heal & prune
+argocd app create my-app-dev \
+  --repo https://github.com/Holuphilix/argo-advanced-config.git \
+  --path kustomize/overlays/dev \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace default \
+  --sync-policy automated \
+  --auto-prune \
+  --self-heal
+
+# Staging - automated sync, self-heal & prune
+argocd app create my-app-staging \
+  --repo https://github.com/Holuphilix/argo-advanced-config.git \
+  --path kustomize/overlays/staging \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace default \
+  --sync-policy automated \
+  --auto-prune \
+  --self-heal
+
+# Prod - manual sync
+argocd app create my-app-prod \
+  --repo https://github.com/Holuphilix/argo-advanced-config.git \
+  --path kustomize/overlays/prod \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace default \
+  --sync-policy manual
+```
+
+8. **Sync Applications**
+
+```bash
+# Dev & Staging auto-sync
+argocd app sync my-app-dev
+argocd app sync my-app-staging
+
+# Prod manual sync
+argocd app sync my-app-prod
+
+# Verify
+argocd app get my-app-dev
+argocd app get my-app-staging
+argocd app get my-app-prod
+```
+
+### **Notes:**
+
+* Dev deployment: **1 replica**, image tag `dev`
+* Staging deployment: **2 replicas**, image tag `staging`
+* Prod deployment: **3 replicas**, image tag `latest`
+* Dev and Staging apps have **auto-sync, self-heal, and pruning** enabled
+* Prod app is **manual sync** for controlled deployment
+* `kubectl` commands confirm deployments and services applied correctly
+* ArgoCD dashboard shows **healthy synced applications** and automatic drift recovery for dev & staging
