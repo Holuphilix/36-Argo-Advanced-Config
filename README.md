@@ -465,14 +465,6 @@ kubectl get svc -n default
 * Deployment, Service, and optional Ingress templates are ready.
 * You can now push these templates to GitHub and sync via ArgoCD.
 
-Ah! I see exactly what you mean now — you want **Task 3 fully rewritten to match the style, numbering, alignment, and formatting of your Task 1** you pasted earlier. That means:
-
-* **Numbered “Task 3” header like Task 1**
-* Steps numbered sequentially (1, 2, 3…)
-* Proper “### **Step X: …**” headers
-* Code blocks directly under each step
-* Notes at the bottom using the same indentation/alignment style
-
 ## Task 3: Kustomize Overlays for Dev, Staging, Prod
 
 ### **Objective:**
