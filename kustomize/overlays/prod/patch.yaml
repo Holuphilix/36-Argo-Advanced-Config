@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: my-app
-          image: holuphilix/my-k8s-app:latest
+          image: holuphilix/my-k8s-app:prod
           imagePullPolicy: Always
           ports:
             - containerPort: 80

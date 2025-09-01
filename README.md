@@ -660,7 +660,29 @@ spec:
           image: holuphilix/my-k8s-app:latest
 ```
 
-5. **Test Kustomize Locally**
+5. **Build locally and tag for each environment**
+
+```bash
+# Build the base image
+docker build -t holuphilix/my-k8s-app:latest .
+
+# Tag images for each environment
+docker tag holuphilix/my-k8s-app:latest holuphilix/my-k8s-app:dev
+docker tag holuphilix/my-k8s-app:latest holuphilix/my-k8s-app:staging
+docker tag holuphilix/my-k8s-app:latest holuphilix/my-k8s-app:prod
+```
+
+6. **Push to Docker Hub**
+
+```bash
+# Push all images to Docker Hub
+docker push holuphilix/my-k8s-app:latest
+docker push holuphilix/my-k8s-app:dev
+docker push holuphilix/my-k8s-app:staging
+docker push holuphilix/my-k8s-app:prod
+```
+
+7. **Test Kustomize Locally**
 
 ```bash
 # Dev
@@ -677,7 +699,7 @@ kubectl get deployments
 kubectl get svc
 ```
 
-6. **Commit and push** the changes to your GitHub repository:
+8. **Commit and push** the changes to your GitHub repository:
 
 ```bash
 git add .
@@ -685,7 +707,7 @@ git commit -m "Add kustomization files for base and overlays"
 git push origin main
 ```
 
-7. **Integrate Kustomize with ArgoCD**
+9. **Integrate Kustomize with ArgoCD**
 
 ```bash
 # Dev - automated sync, self-heal & prune
@@ -698,6 +720,7 @@ argocd app create my-app-dev \
   --auto-prune \
   --self-heal
 
+# Staging - automated sync, self-heal & prune
 # Staging - automated sync, self-heal & prune
 argocd app create my-app-staging \
   --repo https://github.com/Holuphilix/argo-advanced-config.git \
@@ -717,7 +740,7 @@ argocd app create my-app-prod \
   --sync-policy manual
 ```
 
-8. **Sync Applications**
+10. **Sync Applications**
 
 ```bash
 # Dev & Staging auto-sync
