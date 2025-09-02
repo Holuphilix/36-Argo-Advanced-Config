@@ -542,8 +542,6 @@ spec:
       targetPort: 80
 ```
 
----
-
 2. **Create Dev Overlay**
 
 **File:** `kustomize/overlays/dev/kustomization.yaml`
