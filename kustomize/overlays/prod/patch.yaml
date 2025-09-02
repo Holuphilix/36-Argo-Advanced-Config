@@ -11,6 +11,7 @@ spec:
     metadata:
       labels:
         app: my-app
+        env: prod
     spec:
       containers:
         - name: my-app
