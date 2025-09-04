@@ -1,0 +1,41 @@
+# Kubernetes local files
+*.crt
+*.key
+*.pem
+*.kubeconfig
+.kube/
+.kube/
+
+# SealedSecrets plaintext (never commit raw secrets!)
+secret.yaml
+*.secret.yaml
+*.enc.yaml
+
+# ArgoCD / Kustomize build outputs
+kustomize/build/
+*.tmp
+*.bak
+
+# Helm (if you use it later)
+charts/*/charts/
+charts/*/tmpcharts/
+
+# VSCode and IDE configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+debug.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Node / Python (in case you add CI/CD scripts later)
+node_modules/
+__pycache__/
+*.pyc
