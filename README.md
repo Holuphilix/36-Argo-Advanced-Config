@@ -1064,7 +1064,6 @@ git commit -m "Add SealedSecret for API_KEY"
 git push origin main
 ```
 
-
 9. **Sync Applications with ArgoCD**
 
 ```bash
