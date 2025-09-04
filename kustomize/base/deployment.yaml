@@ -27,4 +27,9 @@ spec:
             limits:
               cpu: "500m"
               memory: "128Mi"
-
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: my-app-secret
+                  key: API_KEY

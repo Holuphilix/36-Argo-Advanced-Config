@@ -49,7 +49,6 @@ In modern DevOps workflows, managing application configurations, secrets, and de
 3. **Secrets Management** – Secure storage and access of sensitive data.
 4. **Resource Management & Sync Policies** – Customize resource handling, automated sync, pruning, and self-healing.
 
-
 ## Task 1: Project Structure Setup 
 
 ### **Objective:** 
@@ -81,6 +80,9 @@ mkdir -p images
 
 ```bash
 touch README.md
+touch index.js
+touch package.json
+touch Dockerfile
 # Helm chart files
 touch helm-charts/my-app/Chart.yaml
 touch helm-charts/my-app/values.yaml
@@ -238,8 +240,9 @@ image:
   pullPolicy: IfNotPresent
 
 service:
-  type: ClusterIP
+  type: NodePort
   port: 80
+  nodePort: 30080
 ```
 
 * Edit templates in `templates/`:
@@ -295,15 +298,18 @@ kind: Service
 metadata:
   name: {{ include "my-app.fullname" . }}
   labels:
-    app: {{ include "my-app.name" . }}
+    app.kubernetes.io/name: {{ include "my-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   type: {{ .Values.service.type }}
   selector:
-    app: {{ include "my-app.name" . }}
+    app.kubernetes.io/name: {{ include "my-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
     - protocol: TCP
       port: {{ .Values.service.port }}
       targetPort: 80
+      nodePort: {{ .Values.service.nodePort | default 30080 }}
 ```
 
 * Edit `ingress.yaml`:
@@ -392,6 +398,9 @@ CMD ["node", "index.js"]
 docker build -t holuphilix/my-k8s-app:latest .
 ```
 
+**Screenshot:** Build the Image
+![Build the image](./images/2.docker_build_t_push_orign.png)
+
 ### **Step 8: Push to Docker Hub**
 
 ```bash
@@ -430,6 +439,9 @@ argocd app create my-app \
   --helm-set service.nodePort=30080
 ```
 
+**Screenshot:** Create ArgoCD Application
+![Create ArgoCD Application](./images/1.application_my_app_localhost.png)
+
 * **Using UI:**
 
   * Log in → Click **New App** → Fill repository URL and path → Set cluster & namespace → Enable automated sync.
@@ -442,6 +454,12 @@ argocd app create my-app \
 argocd app sync my-app
 ```
 
+**Screenshot:** Argocd App Sync my-app via CLI
+![argocd app sync my-app](./images/4.argocd_sync_app.png)
+
+**Screenshot:** Argocd App Sync my-app via WEB
+![argocd app sync my-app](./images/5.argocd_sync_app_UIC.png)
+
 * Verify resources:
 
 ```bash
@@ -449,6 +467,10 @@ argocd app get my-app
 kubectl get pods -n default
 kubectl get svc -n default
 ```
+
+**Screenshot:** Verify Resources
+![Verify resources](./images/6.kubectl_get_pods_svc.png)
+
 ### **Expected Outcome**
 
 * Minikube cluster running with ArgoCD installed.
@@ -486,8 +508,6 @@ resources:
   - service.yaml
 
 namePrefix: my-app-
-labels:
-  app: my-app
 ```
 
 **File:** `kustomize/base/deployment.yaml`
@@ -511,16 +531,17 @@ spec:
     spec:
       containers:
         - name: my-app
-          image: holuphilix/my-k8s-app:latest
+          image: holuphilix/my-k8s-app:latest  # base image
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
           resources:
             requests:
-              memory: "64Mi"
               cpu: "250m"
+              memory: "64Mi"
             limits:
-              memory: "128Mi"
               cpu: "500m"
+              memory: "128Mi"
 ```
 
 **File:** `kustomize/base/service.yaml`
@@ -568,14 +589,31 @@ patches:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app
+  name: my-app-my-app-dev
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
   template:
+    metadata:
+      labels:
+        app: my-app
+        env: dev
     spec:
       containers:
         - name: my-app
           image: holuphilix/my-k8s-app:dev
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
 ```
 
 3. **Create Staging Overlay**
@@ -604,14 +642,31 @@ patches:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app
+  name: my-app-my-app-staging
 spec:
-  replicas: 2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
   template:
+    metadata:
+      labels:
+        app: my-app
+        env: staging
     spec:
       containers:
         - name: my-app
           image: holuphilix/my-k8s-app:staging
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
 ```
 
 4. **Create Prod Overlay**
@@ -640,14 +695,31 @@ patches:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app
+  name: my-app-my-app-prod
 spec:
-  replicas: 3
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
   template:
+    metadata:
+      labels:
+        app: my-app
+        env: prod
     spec:
       containers:
         - name: my-app
-          image: holuphilix/my-k8s-app:latest
+          image: holuphilix/my-k8s-app:prod
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
 ```
 
 5. **Build locally and tag for each environment**
@@ -746,12 +818,268 @@ argocd app get my-app-staging
 argocd app get my-app-prod
 ```
 
+**Screenshot 1:** Sync Applications
+![Sync Applications](./images/7.argocd_sync_app_dev.png)
+
+**Screenshot 2:** Sync Applications
+![Sync Applications](./images/8.argocd_sync_app_prod_staging.png)
+
 ### **Notes:**
 
-* Dev deployment: **1 replica**, image tag `dev`
-* Staging deployment: **2 replicas**, image tag `staging`
-* Prod deployment: **3 replicas**, image tag `latest`
-* Dev and Staging apps have **auto-sync, self-heal, and pruning** enabled
-* Prod app is **manual sync** for controlled deployment
-* `kubectl` commands confirm deployments and services applied correctly
-* ArgoCD dashboard shows **healthy synced applications** and automatic drift recovery for dev & staging
+* **Dev deployment**: **1 replica**, image tag `dev`, environment label `env: dev`, lightweight resource requests (`cpu: 100m`, `memory: 64Mi`).
+* **Staging deployment**: **1 replica**, image tag `staging`, environment label `env: staging`, higher memory allocation (`cpu: 100m`, `memory: 128Mi`).
+* **Prod deployment**: **1 replica**, image tag `prod`, environment label `env: prod`, strongest resource limits (`cpu: 200–300m`, `memory: 128–256Mi`).
+* All deployments use `imagePullPolicy: Always` to ensure the latest images are pulled.
+* Dev and Staging apps have **auto-sync, self-heal, and pruning** enabled in ArgoCD.
+* Prod app uses **manual sync** for controlled deployment.
+* `kubectl` commands confirm deployments and services applied correctly in each environment.
+* ArgoCD dashboard shows **healthy synced applications** with automatic drift recovery for Dev & Staging.
+
+## **Task 4: Secrets Management and Best Practices in ArgoCD**
+
+### **Objective:**
+
+Securely manage sensitive data such as API keys, passwords, and tokens in your Kubernetes applications, integrating them with ArgoCD for GitOps-based deployments.
+
+### **Steps**
+
+1. **Create a Sealed Secret in the Base**
+
+Sealed Secrets allow safe GitOps workflows by storing encrypted secrets in Git.
+
+**File:** `kustomize/base/sealed-secret.yaml`
+
+```yaml
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: my-app-secret
+spec:
+  encryptedData:
+    API_KEY: c29tZS1zZWNyZXQta2V5  # generated with kubeseal
+```
+
+**Update base kustomization:** `kustomize/base/kustomization.yaml`
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - sealed-secret.yaml
+
+namePrefix: my-app-
+```
+
+2. **Update Dev Overlay Deployment**
+
+Reference the SealedSecret in the dev deployment:
+
+**File:** `kustomize/overlays/dev/patch.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-my-app-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+        env: dev
+    spec:
+      containers:
+        - name: my-app
+          image: holuphilix/my-k8s-app:dev
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: my-app-secret
+                  key: API_KEY
+```
+
+3. **Update Staging Overlay Deployment**
+
+**File:** `kustomize/overlays/staging/patch.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-my-app-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+        env: staging
+    spec:
+      containers:
+        - name: my-app
+          image: holuphilix/my-k8s-app:staging
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: my-app-secret
+                  key: API_KEY
+```
+
+4. **Update Prod Overlay Deployment**
+
+**File:** `kustomize/overlays/prod/patch.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-my-app-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+        env: prod
+    spec:
+      containers:
+        - name: my-app
+          image: holuphilix/my-k8s-app:prod
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: my-app-secret
+                  key: API_KEY
+```
+
+5. **Install Sealed Secrets Controller**
+
+```bash
+kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.26.1/controller.yaml
+```
+
+Install `kubeseal` CLI to create SealedSecrets:
+
+```bash
+curl -OL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.30.0/kubeseal-0.30.0-linux-amd64.tar.gz"
+
+tar -xvzf kubeseal-0.30.0-linux-amd64.tar.gz kubeseal
+
+sudo install -m 755 kubeseal /usr/local/bin/kubeseal
+```
+
+Create a SealedSecret from an existing plain secret:
+
+```bash
+kubectl create secret generic my-app-secret --from-literal=API_KEY=some-secret-key -n default -o yaml --dry-run=client \
+  | kubeseal --format yaml > kustomize/base/sealed-secret.yaml
+```
+
+> ✅ Note: Only commit SealedSecrets to Git. Plain Secrets should never be stored in Git.
+
+6. **Apply Base and Overlay Configurations**
+
+```bash
+# Apply SealedSecret in base
+kubectl apply -k kustomize/base
+
+# Apply environment overlays
+kubectl apply -k kustomize/overlays/dev
+kubectl apply -k kustomize/overlays/staging
+kubectl apply -k kustomize/overlays/prod
+```
+
+7. **Verify Environment Variables in Pods**
+
+```bash
+kubectl get pods
+
+# Dev
+kubectl exec -it my-app-my-app-dev-7df5cdcf48-b5wq7 -- printenv | grep API_KEY
+
+# Staging
+kubectl exec -it my-app-my-app-staging-768484dcc-qb5c4 -- printenv | grep API_KEY
+
+# Prod
+kubectl exec -it my-app-my-app-prod-55bdc6b475-xjlrt -- printenv | grep API_KEY
+```
+
+Expected output for each pod:
+
+```
+API_KEY=some-secret-key
+```
+
+8. **Commit the Sealed Secret Updates to GitHub:**
+
+```bash
+git add .
+git commit -m "Add SealedSecret for API_KEY"
+git push origin main
+```
+
+
+9. **Sync Applications with ArgoCD**
+
+```bash
+argocd app sync my-app-dev
+argocd app sync my-app-staging
+argocd app sync my-app-prod
+```
+
+Verify in ArgoCD dashboard that **all apps are healthy** and secrets are applied correctly.
+
+### **Notes**
+
+* Dev, Staging, and Prod deployments **reference the SealedSecret** from the base → clean GitOps workflow.
+* SealedSecrets are **encrypted and safe** to commit to Git.
+* Each cluster has its **own SealedSecret key**, ensuring secrets are cluster-specific.
+* ArgoCD automatically deploys SealedSecrets if the controller is installed.
+* Use SealedSecrets for all sensitive data like API keys, database passwords, and OAuth tokens.
+* For more advanced production-grade secret management, consider **Vault or AWS Secrets Manager**.
