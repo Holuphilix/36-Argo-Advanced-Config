@@ -1082,3 +1082,185 @@ Verify in ArgoCD dashboard that **all apps are healthy** and secrets are applied
 * ArgoCD automatically deploys SealedSecrets if the controller is installed.
 * Use SealedSecrets for all sensitive data like API keys, database passwords, and OAuth tokens.
 * For more advanced production-grade secret management, consider **Vault or AWS Secrets Manager**.
+
+## **Task 5: Integrating External Secret Managers with ArgoCD (Local Kubernetes + AWS Secrets Manager)**
+
+### **Objective:**
+
+Enhance secret management by integrating **AWS Secrets Manager** with a **local Kubernetes cluster**. This ensures secrets are managed securely outside Git and injected into Kubernetes clusters during deployments, without incurring significant AWS costs.
+
+### **Steps**
+
+1. **Set Up a Local Kubernetes Cluster**
+
+Use a free local Kubernetes environment like **Kind**, **Minikube**, or **k3d**:
+
+```bash
+# Example with Kind
+kind create cluster --name my-local-cluster
+kubectl cluster-info
+```
+
+2. **Install External Secrets Operator (ESO)**
+
+ESO allows Kubernetes to pull secrets from external providers such as AWS Secrets Manager.
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/external-secrets/external-secrets/main/deploy/crds/bundle.yaml
+kubectl apply -f https://raw.githubusercontent.com/external-secrets/external-secrets/main/deploy/operator/bundle.yaml
+```
+
+Verify installation:
+
+```bash
+kubectl get pods -n external-secrets
+```
+
+**Screenshot:** kubectl get pods -n external-secrets
+[kubectl get pods -n external-secrets](./images/10.kubectl_get_pods_external_secret.png)
+
+3. **🔑 Configure AWS CLI**
+
+After installation, configure it with your AWS credentials:
+
+```bash
+aws configure
+```
+
+It will prompt for:
+
+* **AWS Access Key ID**
+* **AWS Secret Access Key**
+* **Default region** (e.g. `us-east-1`)
+* **Default output format** (e.g. `json`)
+
+**Screenshot:** aws configure
+![aws configure](./images/11.aws_access_ID_key.png)
+
+4. **Store a Secret in AWS Secrets Manager**
+
+```bash
+aws secretsmanager create-secret --name my-app/api-key --secret-string "prod-super-secret-key"
+```
+
+5. **Create a ClusterSecretStore**
+
+**File:** `kustomize/base/clustersecretstore.yaml`
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: aws-secrets-store
+spec:
+  provider:
+    aws:
+      service: SecretsManager
+      region: us-east-1
+      auth:
+        secretRef:
+          accessKeyIDSecretRef:
+            name: aws-credentials
+            key: access-key
+          secretAccessKeySecretRef:
+            name: aws-credentials
+            key: secret-access-key
+```
+
+> **Note:** For demo purposes, we’ll use AWS IAM credentials as a Kubernetes secret. In production, use **IRSA** or a more secure method.
+
+```bash
+kubectl create secret generic aws-credentials \
+  --from-literal=access-key-id=AKIAY6QVZHQO7S6Z36SE \
+  --from-literal=secret-access-key=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 \
+  -n external-secrets
+```
+
+6. **Create an ExternalSecret Resource**
+
+**File:** `kustomize/base/externalsecret.yaml`
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: my-app-external-secret
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-store
+    kind: ClusterSecretStore
+  target:
+    name: my-app-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: API_KEY
+      remoteRef:
+        key: my-app/api-key
+```
+
+> This will create a **Kubernetes Secret (`my-app-secret`)** synced from AWS Secrets Manager.
+
+7. **Reference the Secret in Deployment**
+
+Update `kustomize/base/deployment.yaml`:
+
+```yaml
+env:
+  - name: API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: my-app-secret
+        key: API_KEY
+```
+
+8. **Deploy with ArgoCD**
+
+Push your changes and sync the application:
+
+```bash
+git add .
+git commit -m "Integrate External Secrets with AWS Secrets Manager"
+git push origin main
+```
+
+Sync with ArgoCD:
+
+```bash
+argocd app sync my-app-dev
+```
+
+Validate:
+
+```bash
+kubectl get secrets | grep my-app-secret
+kubectl exec -it <pod-name> -- printenv | grep API_KEY
+```
+
+Expected output:
+
+```
+API_KEY=prod-super-secret-key
+```
+
+9. **(Optional) Use ArgoCD Vault Plugin (AVP)**
+
+Instead of ESO, AVP can fetch secrets directly during sync. Example annotation in `kustomization.yaml`:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+metadata:
+  annotations:
+    avp.kubernetes.io/path: "secret/data/my-app"
+```
+
+AVP supports **Vault, AWS Secrets Manager, Azure Key Vault, GCP Secret Manager**.
+
+### **Notes**
+
+* Using **local Kubernetes** (Kind/Minikube/k3d) keeps the project free.
+* AWS Secrets Manager cost: **\~\$0.40/month** per secret + minimal API calls.
+* ESO is ideal for **cluster-wide syncing**; AVP is better for **smaller setups**.
+* In production, prefer **IRSA** or other secure auth methods over long-lived IAM keys.
+* External secret managers provide **rotation, auditing, and access policies**, unlike SealedSecrets which store encrypted secrets in Git.
