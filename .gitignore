@@ -4,12 +4,12 @@
 *.pem
 *.kubeconfig
 .kube/
-.kube/
 
-# SealedSecrets plaintext (never commit raw secrets!)
+# SealedSecrets / External Secrets plaintext (never commit raw secrets!)
 secret.yaml
 *.secret.yaml
 *.enc.yaml
+aws-credentials.yaml
 
 # ArgoCD / Kustomize build outputs
 kustomize/build/
@@ -39,3 +39,7 @@ Thumbs.db
 node_modules/
 __pycache__/
 *.pyc
+
+# Docker
+*.env
+docker-compose.override.yml
