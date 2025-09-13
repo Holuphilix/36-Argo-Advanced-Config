@@ -1,0 +1,64 @@
+{{/* 
+Expand the name of the chart.
+*/}}
+{{- define "my-app.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/* 
+Create a default fully qualified app name.
+Truncate at 63 chars because of Kubernetes DNS limits.
+*/}}
+{{- define "my-app.fullname" -}}
+{{- if .Values.fullnameOverride }}
+  {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+  {{- $name := include "my-app.name" . }}
+  {{- if contains $name .Release.Name }}
+    {{- .Release.Name | trunc 63 | trimSuffix "-" }}
+  {{- else }}
+    {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/* 
+Create chart name and version for chart label.
+*/}}
+{{- define "my-app.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/* 
+Common labels for all resources.
+*/}}
+{{- define "my-app.labels" -}}
+helm.sh/chart: {{ include "my-app.chart" . }}
+{{ include "my-app.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels for deployments, replicasets, pods.
+*/}}
+{{- define "my-app.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "my-app.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Service account name to use (nil-safe).
+*/}}
+{{- define "my-app.serviceAccountName" -}}
+{{- $sa := .Values.serviceAccount }}
+{{- if and $sa $sa.create }}
+  {{- default (include "my-app.fullname" .) $sa.name }}
+{{- else if $sa }}
+  {{- default "default" $sa.name }}
+{{- else }}
+  default
+{{- end }}
+{{- end }}

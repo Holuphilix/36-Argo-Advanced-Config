@@ -1,45 +1,81 @@
+# Exclude AWS CLI source/dist files
+aws/
+
+# ======================
 # Kubernetes local files
+# ======================
 *.crt
 *.key
 *.pem
 *.kubeconfig
 .kube/
 
-# SealedSecrets / External Secrets plaintext (never commit raw secrets!)
+# ======================
+# AWS CLI / Credentials
+# ======================
+.aws/
+.aws/credentials
+.aws/config
+
+# Prevent Terraform / CloudFormation local state files
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+terraform.tfvars.json
+
+# ======================
+# SealedSecrets / External Secrets plaintext 
+# (never commit raw secrets!)
+# ======================
 secret.yaml
 *.secret.yaml
 *.enc.yaml
 aws-credentials.yaml
 
+# ======================
 # ArgoCD / Kustomize build outputs
+# ======================
 kustomize/build/
 *.tmp
 *.bak
 
+# ======================
 # Helm (if you use it later)
+# ======================
 charts/*/charts/
 charts/*/tmpcharts/
 
+# ======================
 # VSCode and IDE configs
+# ======================
 .vscode/
 .idea/
 *.swp
 *.swo
 
+# ======================
 # Logs
+# ======================
 *.log
 logs/
 debug.log
 
+# ======================
 # OS generated files
+# ======================
 .DS_Store
 Thumbs.db
 
+# ======================
 # Node / Python (in case you add CI/CD scripts later)
+# ======================
 node_modules/
 __pycache__/
 *.pyc
 
+# ======================
 # Docker
+# ======================
 *.env
 docker-compose.override.yml

@@ -1,0 +1,26 @@
+# Ignore git
+.git
+.gitignore
+
+# Ignore node_modules / python cache (in case you have app code later)
+node_modules
+__pycache__/
+*.pyc
+
+# Ignore Kubernetes configs (we don’t need them inside Docker image)
+kustomize/
+*.yaml
+*.yml
+
+# Ignore secrets
+*.secret.yaml
+*.enc.yaml
+secret.yaml
+
+# Ignore local files
+.DS_Store
+.vscode/
+.idea/
+*.log
+*.bak
+*.tmp
