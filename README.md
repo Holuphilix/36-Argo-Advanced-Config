@@ -1359,7 +1359,7 @@ Learn to **customize how ArgoCD handles resources** by ignoring certain differen
 
 ## **Task 7: Git Final Push to GitHub**
 
-In this task, we push our fully configured project (base manifests, overlays for dev/staging/prod, SealedSecrets, and ArgoCD configurations) to GitHub for GitOps automation.
+In this task, we push our fully configured project (base manifests, overlays for dev/staging/prod, SealedSecrets, External Secrets, and ArgoCD configurations) to GitHub for GitOps automation.
 
 ### Steps
 
@@ -1372,7 +1372,7 @@ In this task, we push our fully configured project (base manifests, overlays for
 2. Commit the changes with a meaningful message.
 
    ```bash
-   git commit -m "Kubernetes GitOps project with Kustomize, SealedSecrets, and ArgoCD"
+   git commit -m "Kubernetes GitOps project with Kustomize, SealedSecrets, External Secrets, and ArgoCD"
    ```
 
 3. Push to GitHub main branch.
@@ -1383,24 +1383,98 @@ In this task, we push our fully configured project (base manifests, overlays for
 
 4. Confirm the repository is updated by checking on GitHub.
 
-### **Conclusion**
+## **Task 8: Cleanup (Optional)**
+
+After completing the project, it is recommended to clean up resources to avoid unwanted costs and maintain a tidy environment.
+
+### **Steps**
+
+1. **Local Kubernetes Cluster (Free)**
+   If you used **Minikube** or **kind**, delete the cluster:
+
+   ```bash
+   minikube delete
+   # or
+   kind delete cluster
+   ```
+
+2. **AWS EKS (Paid)**
+   If you used **AWS EKS** or created cloud resources:
+
+   2.1 Delete the EKS cluster:
+
+   ```bash
+   eksctl delete cluster --name my-cluster --region us-east-1
+   ```
+
+   2.2 Delete IAM roles, External Secrets, and AWS Secrets Manager secrets (if no longer needed):
+
+   ```bash
+   aws secretsmanager delete-secret --secret-id my-app/api-key --force-delete-without-recovery
+   ```
+
+3. **Delete ArgoCD Applications**
+
+   ```bash
+   argocd app delete my-app-dev --cascade
+   argocd app delete my-app-staging --cascade
+   argocd app delete my-app-prod --cascade
+   ```
+
+4. **Delete Kubernetes Resources**
+
+   ```bash
+   kubectl delete -k kustomize/overlays/dev
+   kubectl delete -k kustomize/overlays/staging
+   kubectl delete -k kustomize/overlays/prod
+   ```
+
+   Delete namespaces (if created):
+
+   ```bash
+   kubectl delete namespace dev
+   kubectl delete namespace staging
+   kubectl delete namespace prod
+   ```
+
+5. **Delete SealedSecrets Controller**
+
+   ```bash
+   kubectl delete -f https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.26.0/controller.yaml
+   ```
+
+6. **Delete External Secrets Operator (ESO)**
+
+   ```bash
+   kubectl delete -k https://github.com/external-secrets/external-secrets//deploy/operator
+   kubectl delete -k https://github.com/external-secrets/external-secrets//deploy/crds
+   ```
+
+✅ **Notes:**
+
+* Local Kubernetes users only need Step 1.
+* AWS users should perform Step 2 to avoid ongoing charges.
+* Steps 3–6 are optional but recommended to fully clean the environment.
+
+## **Conclusion**
 
 This project demonstrated a **complete GitOps workflow** for managing Kubernetes applications across multiple environments using:
 
-* **Kustomize** → to create modular base and overlay manifests for dev, staging, and prod.
-* **SealedSecrets** → to securely manage sensitive data in Git repositories.
-* **ArgoCD** → to achieve automated and declarative GitOps-driven deployments.
-* **AWS EKS (or local Minikube)** → as the Kubernetes cluster to host the application.
+* **Kustomize** → modular base and overlay manifests for dev, staging, and prod.
+* **SealedSecrets** → securely managing sensitive data in Git repositories.
+* **External Secrets Operator (ESO)** + **AWS Secrets Manager** → pulling secrets dynamically from external managers.
+* **ArgoCD** → automated and declarative GitOps-driven deployments.
+* **AWS EKS (or local Minikube/kind)** → as the Kubernetes cluster to host the application.
 
 By following this approach, you ensured:
 
-* Security of secrets (never exposing plain Kubernetes secrets in Git).
-* Reusability of manifests across multiple environments.
-* Automated, auditable, and reliable deployments with ArgoCD syncing directly from GitHub.
+* **Security** of secrets (never exposing plain Kubernetes secrets in Git).
+* **Reusability** of manifests across multiple environments.
+* **Automation & Reliability** with ArgoCD syncing directly from GitHub.
 
 This setup is **production-ready** and scalable for real-world DevOps and GitOps workflows.
 
-### **Author**
+## **Author**
 
 👨‍💻 **Philip Oluwaseyi Oludolamu**
 
@@ -1408,6 +1482,5 @@ This setup is **production-ready** and scalable for real-world DevOps and GitOps
 * 📍 Based in Northern Cyprus
 * 📧 Email: [oluphilix@gmail.com](mailto:oluphilix@gmail.com)
 * 🔗 GitHub: [oluphilix](https://github.com/oluphilix)
-*    LinkedIn: [linkedin.com/in/philipoludolamu](https://linkedin.com/in/philipoludolamu)
+* 🔗 LinkedIn: [linkedin.com/in/philipoludolamu](https://linkedin.com/in/philipoludolamu)
 * 🌍 Dream: To work as a DevOps Engineer in the USA
-
