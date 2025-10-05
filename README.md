@@ -1,4 +1,4 @@
-# **Advanced Configuration Management in ArgoCD**
+# **Mini Project: Advanced Configuration Management in ArgoCD**
 
 ## **Project Overview**
 
